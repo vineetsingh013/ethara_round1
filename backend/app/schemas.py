@@ -37,7 +37,7 @@ class CustomerBase(BaseModel):
 
 
 class CustomerCreate(CustomerBase):
-    pass
+    password: Optional[str] = Field(None, min_length=6)
 
 
 class CustomerResponse(CustomerBase):

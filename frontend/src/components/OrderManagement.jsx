@@ -184,7 +184,7 @@ export default function OrderManagement() {
               ))}
             </tbody>
             <tfoot>
-              <tr style={{ fontWeight: 700, background: '#f8fafc' }}>
+              <tr style={{ fontWeight: 700, background: 'var(--table-stripe)' }}>
                 <td colSpan={3} style={{ textAlign: 'right', padding: '12px 16px' }}>Total:</td>
                 <td style={{ padding: '12px 16px' }}>${selectedOrder.total_amount?.toFixed(2)}</td>
               </tr>

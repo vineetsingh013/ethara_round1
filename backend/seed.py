@@ -51,8 +51,6 @@ async def seed():
             (customers[0], [(products[0], 10), (products[9], 24)]),
             (customers[1], [(products[3], 2), (products[16], 5)]),
             (customers[2], [(products[1], 8), (products[4], 4), (products[13], 12)]),
-            (customers[3], [(products[8], 100), (products[11], 50)]),
-            (customers[4], [(products[6], 3), (products[14], 10), (products[15], 8)]),
             (customers[2], [(products[2], 15), (products[17], 60)]),
             (customers[0], [(products[5], 6), (products[7], 1)]),
         ]

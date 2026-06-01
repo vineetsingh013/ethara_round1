@@ -4,9 +4,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from app.database import get_db
-from app.models import Customer, Order, User
+from app.models import Customer, Order, User, UserRole
 from app.schemas import CustomerCreate, CustomerResponse
-from app.dependencies import require_admin, get_current_user
+from app.dependencies import require_admin, get_current_user, hash_password
 
 router = APIRouter(prefix="/customers", tags=["customers"])
 
@@ -32,6 +32,21 @@ async def create_customer(
     db.add(db_customer)
     await db.flush()
     await db.refresh(db_customer)
+
+    if customer.password:
+        existing_user = await db.execute(
+            select(User).where(User.email == customer.email)
+        )
+        if not existing_user.scalar_one_or_none():
+            db_user = User(
+                email=customer.email,
+                password_hash=hash_password(customer.password),
+                role=UserRole.customer,
+                customer_id=db_customer.id,
+            )
+            db.add(db_user)
+
+    await db.flush()
     return db_customer
 
 
@@ -88,14 +103,21 @@ async def delete_customer(
             detail="Customer not found",
         )
 
-    order_count = await db.execute(
+    order_result = await db.execute(
         select(Order).where(Order.customer_id == customer_id)
     )
-    if order_count.scalars().first():
+    if order_result.scalars().first():
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Cannot delete customer with existing orders",
+            detail="Cannot delete customer with existing orders. Delete the orders first.",
         )
+
+    user_result = await db.execute(
+        select(User).where(User.customer_id == customer_id)
+    )
+    user = user_result.scalars().first()
+    if user:
+        await db.delete(user)
 
     await db.delete(customer)
     await db.flush()

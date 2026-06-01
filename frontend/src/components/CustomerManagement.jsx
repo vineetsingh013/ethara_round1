@@ -6,7 +6,7 @@ export default function CustomerManagement() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '' });
+  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '' });
   const notify = useNotify();
 
   const loadCustomers = () => {
@@ -19,7 +19,7 @@ export default function CustomerManagement() {
   useEffect(loadCustomers, []);
 
   const openCreate = () => {
-    setForm({ name: '', email: '', phone: '' });
+    setForm({ name: '', email: '', phone: '', password: '' });
     setShowForm(true);
   };
 
@@ -101,6 +101,10 @@ export default function CustomerManagement() {
               <div className="form-group">
                 <label>Phone</label>
                 <input type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} required />
+              </div>
+              <div className="form-group">
+                <label>Password <span style={{ color: 'var(--text-light)', fontWeight: 400 }}>(optional — set if customer should be able to log in)</span></label>
+                <input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} minLength={6} placeholder="Leave blank to skip user account" />
               </div>
               <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
