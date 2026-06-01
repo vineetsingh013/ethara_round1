@@ -103,6 +103,37 @@ export default function OrderManagement() {
     }
   };
 
+  const handleApproveCancel = async (id) => {
+    if (!window.confirm('Approve cancellation and restore stock?')) return;
+    try {
+      await api.approveCancellation(id);
+      notify.success('Cancellation approved, stock restored');
+      loadAll();
+    } catch (err) {
+      notify.error(err.message);
+    }
+  };
+
+  const handleRejectCancel = async (id) => {
+    try {
+      await api.rejectCancellation(id);
+      notify.success('Cancellation request rejected');
+      loadAll();
+    } catch (err) {
+      notify.error(err.message);
+    }
+  };
+
+  const statusLabel = (s) => {
+    const labels = {
+      confirmed: 'Confirmed',
+      cancellation_requested: 'Cancel Requested',
+      cancelled: 'Cancelled',
+      rejection_requested: 'Rejected',
+    };
+    return labels[s] || s;
+  };
+
   if (loading) return <p>Loading orders...</p>;
 
   if (selectedOrder) {
@@ -121,7 +152,14 @@ export default function OrderManagement() {
             <div><div className="detail-label">Customer</div><div className="detail-value">{selectedOrder.customer_name}</div></div>
             <div><div className="detail-label">Customer ID</div><div className="detail-value">#{selectedOrder.customer_id}</div></div>
             <div><div className="detail-label">Total Amount</div><div className="detail-value">${selectedOrder.total_amount?.toFixed(2)}</div></div>
+            <div><div className="detail-label">Status</div><div className="detail-value">{statusLabel(selectedOrder.status)}</div></div>
             <div><div className="detail-label">Date</div><div className="detail-value">{new Date(selectedOrder.created_at).toLocaleString()}</div></div>
+            {selectedOrder.status === 'cancellation_requested' && (
+              <div style={{ gridColumn: 'span 2', marginTop: 8 }}>
+                <button className="btn btn-primary btn-sm" style={{ marginRight: 8 }} onClick={() => { handleApproveCancel(selectedOrder.id); setSelectedOrder(null); }}>Approve Cancellation</button>
+                <button className="btn btn-danger btn-sm" onClick={() => { handleRejectCancel(selectedOrder.id); setSelectedOrder(null); }}>Reject Cancellation</button>
+              </div>
+            )}
           </div>
         </div>
         <div className="detail-section">
@@ -173,23 +211,38 @@ export default function OrderManagement() {
               <th>Order ID</th>
               <th>Customer</th>
               <th>Total</th>
+              <th>Status</th>
               <th>Date</th>
               <th>Actions</th>
             </tr>
           </thead>
           <tbody>
             {orders.length === 0 && (
-              <tr><td colSpan={5} style={{ textAlign: 'center', padding: 24 }}>No orders found</td></tr>
+              <tr><td colSpan={6} style={{ textAlign: 'center', padding: 24 }}>No orders found</td></tr>
             )}
             {orders.map((o) => (
               <tr key={o.id}>
                 <td>#{o.id}</td>
                 <td>{o.customer_name || `Customer #${o.customer_id}`}</td>
                 <td>${o.total_amount?.toFixed(2)}</td>
+                <td>
+                  {o.status === 'cancellation_requested' ? (
+                    <span className="badge badge-warning">{statusLabel(o.status)}</span>
+                  ) : (
+                    statusLabel(o.status)
+                  )}
+                </td>
                 <td>{new Date(o.created_at).toLocaleDateString()}</td>
                 <td>
-                  <button className="btn btn-secondary btn-sm" style={{ marginRight: 8 }} onClick={() => viewOrder(o.id)}>View</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(o.id)}>Cancel</button>
+                  <button className="btn btn-secondary btn-sm" style={{ marginRight: 4 }} onClick={() => viewOrder(o.id)}>View</button>
+                  {o.status === 'cancellation_requested' ? (
+                    <>
+                      <button className="btn btn-primary btn-sm" style={{ marginRight: 4 }} onClick={() => handleApproveCancel(o.id)}>Approve</button>
+                      <button className="btn btn-danger btn-sm" onClick={() => handleRejectCancel(o.id)}>Reject</button>
+                    </>
+                  ) : (
+                    <button className="btn btn-danger btn-sm" onClick={() => handleDelete(o.id)}>Delete</button>
+                  )}
                 </td>
               </tr>
             ))}

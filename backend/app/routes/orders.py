@@ -4,14 +4,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from app.database import get_db
-from app.models import Order, OrderItem, Product, Customer
+from app.models import Order, OrderItem, Product, Customer, User, OrderStatus
 from app.schemas import OrderCreate, OrderResponse, OrderItemResponse, DashboardResponse
+from app.dependencies import require_admin, get_current_user
 
 router = APIRouter(prefix="/orders", tags=["orders"])
+portal_router = APIRouter(prefix="/orders/my", tags=["customer portal"])
 
 
 @router.get("/dashboard", response_model=DashboardResponse)
-async def get_dashboard(db: AsyncSession = Depends(get_db)):
+async def get_dashboard(
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+):
     from sqlalchemy import func
 
     products_count = await db.execute(select(func.count(Product.id)))
@@ -31,7 +36,11 @@ async def get_dashboard(db: AsyncSession = Depends(get_db)):
 
 
 @router.post("/", response_model=OrderResponse, status_code=status.HTTP_201_CREATED)
-async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_db)):
+async def create_order(
+    order_data: OrderCreate,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+):
     customer_result = await db.execute(
         select(Customer).where(Customer.id == order_data.customer_id)
     )
@@ -78,6 +87,7 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
     db_order = Order(
         customer_id=order_data.customer_id,
         total_amount=round(total_amount, 2),
+        status=OrderStatus.confirmed,
     )
     db.add(db_order)
     await db.flush()
@@ -97,8 +107,57 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
     return await _build_order_response(db_order, db)
 
 
+@router.post("/{order_id}/approve-cancellation", response_model=OrderResponse)
+async def approve_cancellation(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.cancellation_requested:
+        raise HTTPException(status_code=400, detail="Order has no pending cancellation request")
+
+    items_result = await db.execute(
+        select(OrderItem).where(OrderItem.order_id == order_id)
+    )
+    for item in items_result.scalars().all():
+        product = await db.get(Product, item.product_id)
+        if product:
+            product.quantity += item.quantity
+
+    order.status = OrderStatus.cancelled
+    await db.flush()
+    await db.refresh(order)
+    return await _build_order_response(order, db)
+
+
+@router.post("/{order_id}/reject-cancellation", response_model=OrderResponse)
+async def reject_cancellation(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+):
+    result = await db.execute(select(Order).where(Order.id == order_id))
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.cancellation_requested:
+        raise HTTPException(status_code=400, detail="Order has no pending cancellation request")
+
+    order.status = OrderStatus.rejection_requested
+    await db.flush()
+    await db.refresh(order)
+    return await _build_order_response(order, db)
+
+
 @router.get("/", response_model=List[OrderResponse])
-async def list_orders(db: AsyncSession = Depends(get_db)):
+async def list_orders(
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+):
     result = await db.execute(
         select(Order).order_by(Order.created_at.desc())
     )
@@ -109,7 +168,11 @@ async def list_orders(db: AsyncSession = Depends(get_db)):
 
 
 @router.get("/{order_id}", response_model=OrderResponse)
-async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
+async def get_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+):
     result = await db.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
     if not order:
@@ -121,7 +184,11 @@ async def get_order(order_id: int, db: AsyncSession = Depends(get_db)):
 
 
 @router.delete("/{order_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_order(order_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    _admin=Depends(require_admin),
+):
     result = await db.execute(select(Order).where(Order.id == order_id))
     order = result.scalar_one_or_none()
     if not order:
@@ -142,6 +209,140 @@ async def delete_order(order_id: int, db: AsyncSession = Depends(get_db)):
 
     await db.delete(order)
     await db.flush()
+
+
+@portal_router.get("/", response_model=List[OrderResponse])
+async def list_my_orders(
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.customer_id:
+        raise HTTPException(status_code=400, detail="No linked customer profile")
+    result = await db.execute(
+        select(Order)
+        .where(Order.customer_id == current_user.customer_id)
+        .order_by(Order.created_at.desc())
+    )
+    orders = result.scalars().all()
+    return [await _build_order_response(order, db) for order in orders]
+
+
+@portal_router.post("/", response_model=OrderResponse, status_code=201)
+async def create_my_order(
+    order_data: OrderCreate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.customer_id:
+        raise HTTPException(status_code=400, detail="No linked customer profile")
+    order_data.customer_id = current_user.customer_id
+
+    customer_result = await db.execute(
+        select(Customer).where(Customer.id == order_data.customer_id)
+    )
+    customer = customer_result.scalar_one_or_none()
+    if not customer:
+        raise HTTPException(status_code=404, detail="Customer not found")
+
+    total_amount = 0.0
+    order_items_data = []
+
+    for item in order_data.items:
+        product_result = await db.execute(
+            select(Product).where(Product.sku == item.sku)
+        )
+        product = product_result.scalar_one_or_none()
+        if not product:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Product with SKU '{item.sku}' not found",
+            )
+
+        if product.quantity < item.quantity:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient stock for product '{product.name}'. "
+                f"Available: {product.quantity}, requested: {item.quantity}",
+            )
+
+        line_total = product.price * item.quantity
+        total_amount += line_total
+
+        order_items_data.append({
+            "product": product,
+            "quantity": item.quantity,
+            "unit_price": product.price,
+        })
+
+        product.quantity -= item.quantity
+        order_items_data[-1]["sku"] = product.sku
+
+    db_order = Order(
+        customer_id=order_data.customer_id,
+        total_amount=round(total_amount, 2),
+        status=OrderStatus.confirmed,
+    )
+    db.add(db_order)
+    await db.flush()
+
+    for item_data in order_items_data:
+        db_item = OrderItem(
+            order_id=db_order.id,
+            product_id=item_data["product"].id,
+            quantity=item_data["quantity"],
+            unit_price=item_data["unit_price"],
+        )
+        db.add(db_item)
+
+    await db.flush()
+    await db.refresh(db_order)
+    return await _build_order_response(db_order, db)
+
+
+@portal_router.post("/{order_id}/cancel-request", response_model=OrderResponse)
+async def request_cancellation(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.customer_id:
+        raise HTTPException(status_code=400, detail="No linked customer profile")
+    result = await db.execute(
+        select(Order).where(
+            Order.id == order_id,
+            Order.customer_id == current_user.customer_id,
+        )
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.confirmed:
+        raise HTTPException(status_code=400, detail="Only confirmed orders can request cancellation")
+
+    order.status = OrderStatus.cancellation_requested
+    await db.flush()
+    await db.refresh(order)
+    return await _build_order_response(order, db)
+
+
+@portal_router.get("/{order_id}", response_model=OrderResponse)
+async def get_my_order(
+    order_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    if not current_user.customer_id:
+        raise HTTPException(status_code=400, detail="No linked customer profile")
+    result = await db.execute(
+        select(Order).where(
+            Order.id == order_id,
+            Order.customer_id == current_user.customer_id,
+        )
+    )
+    order = result.scalar_one_or_none()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    return await _build_order_response(order, db)
 
 
 async def _build_order_response(order: Order, db: AsyncSession):
@@ -171,6 +372,7 @@ async def _build_order_response(order: Order, db: AsyncSession):
         customer_id=order.customer_id,
         customer_name=customer.name if customer else None,
         total_amount=order.total_amount,
+        status=order.status,
         items=item_responses,
         created_at=order.created_at,
     )

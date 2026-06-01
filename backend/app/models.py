@@ -1,6 +1,32 @@
-from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func
+from sqlalchemy import Column, Integer, String, Float, ForeignKey, DateTime, func, Enum as SAEnum
 from sqlalchemy.orm import relationship
 from app.database import Base
+import enum
+
+
+class UserRole(str, enum.Enum):
+    admin = "admin"
+    customer = "customer"
+
+
+class OrderStatus(str, enum.Enum):
+    confirmed = "confirmed"
+    cancellation_requested = "cancellation_requested"
+    cancelled = "cancelled"
+    rejection_requested = "rejection_requested"
+
+
+class User(Base):
+    __tablename__ = "users"
+
+    id = Column(Integer, primary_key=True, index=True)
+    email = Column(String(255), unique=True, nullable=False, index=True)
+    password_hash = Column(String(255), nullable=False)
+    role = Column(SAEnum(UserRole), nullable=False, default=UserRole.customer)
+    customer_id = Column(Integer, ForeignKey("customers.id"), nullable=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+
+    customer = relationship("Customer")
 
 
 class Product(Base):
@@ -35,6 +61,7 @@ class Order(Base):
     id = Column(Integer, primary_key=True, index=True)
     customer_id = Column(Integer, ForeignKey("customers.id"), nullable=False)
     total_amount = Column(Float, nullable=False, default=0.0)
+    status = Column(SAEnum(OrderStatus), nullable=False, default=OrderStatus.confirmed)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     customer = relationship("Customer", back_populates="orders")

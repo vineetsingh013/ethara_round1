@@ -1,6 +1,7 @@
 from pydantic import BaseModel, EmailStr, Field
 from typing import List, Optional
 from datetime import datetime
+from app.models import UserRole, OrderStatus
 
 
 class ProductBase(BaseModel):
@@ -71,6 +72,7 @@ class OrderResponse(BaseModel):
     customer_id: int
     customer_name: Optional[str] = None
     total_amount: float
+    status: OrderStatus
     items: List[OrderItemResponse] = []
     created_at: datetime
 
@@ -82,3 +84,32 @@ class DashboardResponse(BaseModel):
     total_customers: int
     total_orders: int
     low_stock_products: int
+
+
+class UserRegister(BaseModel):
+    email: EmailStr
+    password: str = Field(..., min_length=6)
+    name: str = Field(..., min_length=1, max_length=255)
+    phone: str = Field(..., min_length=1, max_length=50)
+
+
+class UserLogin(BaseModel):
+    email: EmailStr
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
+    role: str
+    customer_id: Optional[int] = None
+
+
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    role: UserRole
+    customer_id: Optional[int] = None
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
