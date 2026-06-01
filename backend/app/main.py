@@ -7,11 +7,13 @@ from app.database import init_db, async_session_factory
 from app.models import User, UserRole
 from app.dependencies import hash_password
 from app.routes import products, customers, orders, auth
+from app.seed import seed
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     await init_db()
+    await seed()
     async with async_session_factory() as db:
         result = await db.execute(
             select(User).where(User.email == "admin@example.com")
