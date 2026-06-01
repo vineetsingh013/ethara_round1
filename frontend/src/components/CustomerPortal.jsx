@@ -2,9 +2,15 @@ import React, { useEffect, useState } from 'react';
 import { api } from '../api';
 import { useAuth } from './AuthContext';
 import { useNotify } from './Notification';
+import { useTheme } from './ThemeContext';
+import Loader from './Loader';
 
 export default function CustomerPortal() {
   const { user, logout } = useAuth();
+  const { toggleTheme, theme } = useTheme();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMobile = () => setMobileOpen(false);
   const notify = useNotify();
   const [profile, setProfile] = useState(null);
   const [products, setProducts] = useState([]);
@@ -108,26 +114,33 @@ export default function CustomerPortal() {
     return labels[s] || s;
   };
 
-  if (loading) return <p style={{ padding: 32 }}>Loading...</p>;
+  if (loading) return <Loader text="Loading customer data..." />;
 
   return (
     <div className="app">
-      <nav className="sidebar">
+      <div className={`sidebar-backdrop${mobileOpen ? ' visible' : ''}`} onClick={closeMobile} />
+      <nav className={`sidebar${sidebarOpen ? '' : ' collapsed'}${mobileOpen ? ' mobile-open' : ''}`}>
         <div className="sidebar-header">
-          <h2>IMS</h2>
-          <p className="sidebar-subtitle">Customer Portal</p>
+          {sidebarOpen && <h2>IMS</h2>}
+          <button className="sidebar-collapse-btn" onClick={() => setSidebarOpen(!sidebarOpen)} title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}>
+            {sidebarOpen ? '\u2715' : '\u2630'}
+          </button>
         </div>
         <div className="nav-links">
-          <button className={`nav-link${view === 'dashboard' ? ' active' : ''}`} onClick={() => { setView('dashboard'); setSelectedOrder(null); }}>Dashboard</button>
-          <button className={`nav-link${view === 'orders' ? ' active' : ''}`} onClick={() => { setView('orders'); setSelectedOrder(null); loadAll(); }}>My Orders</button>
-          <button className={`nav-link${view === 'create' ? ' active' : ''}`} onClick={() => { setView('create'); setSelectedOrder(null); }}>Place Order</button>
+          <button className={`nav-link${view === 'dashboard' ? ' active' : ''}`} onClick={() => { setView('dashboard'); setSelectedOrder(null); closeMobile(); }}><span className="nav-icon">📊</span><span>Dashboard</span></button>
+          <button className={`nav-link${view === 'orders' ? ' active' : ''}`} onClick={() => { setView('orders'); setSelectedOrder(null); loadAll(); closeMobile(); }}><span className="nav-icon">📋</span><span>My Orders</span></button>
+          <button className={`nav-link${view === 'create' ? ' active' : ''}`} onClick={() => { setView('create'); setSelectedOrder(null); closeMobile(); }}><span className="nav-icon">➕</span><span>Place Order</span></button>
         </div>
-        <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: 4 }}>{user?.email}</div>
+        <div className="sidebar-footer">
+          <div style={{ fontSize: '0.8rem', color: 'var(--muted-teal)', marginBottom: 4 }}>{user?.email}</div>
           <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={logout}>Sign Out</button>
         </div>
       </nav>
       <main className="main-content">
+        <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)} title="Open menu">&#9776;</button>
+        <button className="theme-toggle-corner" onClick={toggleTheme} title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}>
+          {theme === 'light' ? '\u263E' : '\u2600'}
+        </button>
         {view === 'dashboard' && (
           <>
             <div className="page-header"><h1>My Dashboard</h1></div>

@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { useAuth } from './AuthContext';
 import { useNotify } from './Notification';
+import { useTheme } from './ThemeContext';
 
 export default function Login({ onToggleRegister }) {
   const { login } = useAuth();
   const notify = useNotify();
+  const { toggleTheme, theme } = useTheme();
   const [form, setForm] = useState({ email: '', password: '' });
   const [submitting, setSubmitting] = useState(false);
 
@@ -22,18 +24,13 @@ export default function Login({ onToggleRegister }) {
   };
 
   return (
-    <div style={{
-      display: 'flex', justifyContent: 'center', alignItems: 'center',
-      minHeight: '100vh', background: '#f1f5f9',
-    }}>
-      <div style={{
-        background: '#fff', borderRadius: 8, padding: 40,
-        width: '100%', maxWidth: 400, boxShadow: '0 4px 24px rgba(0,0,0,0.1)',
-      }}>
-        <h1 style={{ marginBottom: 8, fontSize: '1.5rem' }}>Welcome</h1>
-        <p style={{ color: '#64748b', marginBottom: 24, fontSize: '0.9rem' }}>
-          Sign in to the Inventory Management System
-        </p>
+    <div className="login-wrapper">
+      <button className="theme-toggle-corner" onClick={toggleTheme} title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}>
+        {theme === 'light' ? '\u263E' : '\u2600'}
+      </button>
+      <div className="login-card">
+        <h1>Welcome</h1>
+        <p>Sign in to the Inventory Management System</p>
         <form onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Email</label>
@@ -59,11 +56,11 @@ export default function Login({ onToggleRegister }) {
             {submitting ? 'Signing in...' : 'Sign In'}
           </button>
         </form>
-        <p style={{ marginTop: 16, textAlign: 'center', fontSize: '0.85rem', color: '#64748b' }}>
+        <p style={{ marginTop: 16, textAlign: 'center', fontSize: '0.85rem', color: 'var(--text-light)' }}>
           New customer?{' '}
           <button
             onClick={onToggleRegister}
-            style={{ background: 'none', border: 'none', color: '#2563eb', cursor: 'pointer', fontSize: '0.85rem' }}
+            style={{ background: 'none', border: 'none', color: 'var(--primary)', cursor: 'pointer', fontSize: '0.85rem' }}
           >
             Create an account
           </button>

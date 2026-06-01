@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Link, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './components/AuthContext';
 import { NotificationProvider } from './components/Notification';
@@ -11,12 +11,14 @@ import OrderManagement from './components/OrderManagement';
 import Login from './components/Login';
 import Register from './components/Register';
 import CustomerPortal from './components/CustomerPortal';
+import { ThemeProvider, useTheme } from './components/ThemeContext';
+import Loader from './components/Loader';
 
-function NavLink({ to, children }) {
+function NavLink({ to, children, onClick }) {
   const location = useLocation();
   const isActive = location.pathname === to;
   return (
-    <Link to={to} className={`nav-link${isActive ? ' active' : ''}`}>
+    <Link to={to} className={`nav-link${isActive ? ' active' : ''}`} onClick={onClick}>
       {children}
     </Link>
   );
@@ -24,26 +26,37 @@ function NavLink({ to, children }) {
 
 function AdminLayout() {
   const { logout, user } = useAuth();
+  const { toggleTheme, theme } = useTheme();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const closeMobile = () => setMobileOpen(false);
   return (
     <div className="app">
-      <nav className="sidebar">
+      <div className={`sidebar-backdrop${mobileOpen ? ' visible' : ''}`} onClick={closeMobile} />
+      <nav className={`sidebar${sidebarOpen ? '' : ' collapsed'}${mobileOpen ? ' mobile-open' : ''}`}>
         <div className="sidebar-header">
-          <h2>IMS</h2>
-          <p className="sidebar-subtitle">Admin Portal</p>
+          {sidebarOpen && <h2>IMS</h2>}
+          <button className="sidebar-collapse-btn" onClick={() => setSidebarOpen(!sidebarOpen)} title={sidebarOpen ? 'Collapse sidebar' : 'Expand sidebar'}>
+            {sidebarOpen ? '\u2715' : '\u2630'}
+          </button>
         </div>
         <div className="nav-links">
-          <NavLink to="/admin">Dashboard</NavLink>
-          <NavLink to="/admin/products">Products</NavLink>
-          <NavLink to="/admin/customers">Customers</NavLink>
-          <NavLink to="/admin/orders">Orders</NavLink>
+          <NavLink to="/admin" onClick={closeMobile}><span className="nav-icon">📊</span><span>Dashboard</span></NavLink>
+          <NavLink to="/admin/products" onClick={closeMobile}><span className="nav-icon">📦</span><span>Products</span></NavLink>
+          <NavLink to="/admin/customers" onClick={closeMobile}><span className="nav-icon">👥</span><span>Customers</span></NavLink>
+          <NavLink to="/admin/orders" onClick={closeMobile}><span className="nav-icon">📋</span><span>Orders</span></NavLink>
         </div>
-        <div style={{ marginTop: 'auto', padding: 12, borderTop: '1px solid var(--border)' }}>
-          <div style={{ fontSize: '0.8rem', color: 'var(--text-light)', marginBottom: 4 }}>{user?.email}</div>
+        <div className="sidebar-footer">
+          <div style={{ fontSize: '0.8rem', color: 'var(--muted-teal)', marginBottom: 4 }}>{user?.email}</div>
           <button className="btn btn-danger btn-sm" style={{ width: '100%' }} onClick={logout}>Sign Out</button>
         </div>
       </nav>
       <main className="main-content">
+        <button className="mobile-menu-btn" onClick={() => setMobileOpen(true)} title="Open menu">&#9776;</button>
         <Notification />
+        <button className="theme-toggle-corner" onClick={toggleTheme} title={theme === 'light' ? 'Dark Mode' : 'Light Mode'}>
+          {theme === 'light' ? '\u263E' : '\u2600'}
+        </button>
         <Routes>
           <Route path="/admin" element={<Dashboard />} />
           <Route path="/admin/products" element={<ProductManagement />} />
@@ -66,9 +79,15 @@ function LoginPage() {
 
 function AppRoutes() {
   const { user, loading, role } = useAuth();
+  const [minTimeElapsed, setMinTimeElapsed] = useState(false);
 
-  if (loading) {
-    return <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>Loading...</div>;
+  useEffect(() => {
+    const timer = setTimeout(() => setMinTimeElapsed(true), 3000);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (loading || !minTimeElapsed) {
+    return <Loader text="Loading application..." />;
   }
 
   if (!user) {
@@ -98,9 +117,11 @@ function AppRoutes() {
 export default function App() {
   return (
     <BrowserRouter>
-      <AuthProvider>
-        <AppRoutes />
-      </AuthProvider>
+      <ThemeProvider>
+        <AuthProvider>
+          <AppRoutes />
+        </AuthProvider>
+      </ThemeProvider>
     </BrowserRouter>
   );
 }
