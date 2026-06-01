@@ -37,9 +37,9 @@ async def list_products(db: AsyncSession = Depends(get_db)):
     return result.scalars().all()
 
 
-@router.get("/{product_id}", response_model=ProductResponse)
-async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Product).where(Product.id == product_id))
+@router.get("/{sku}", response_model=ProductResponse)
+async def get_product(sku: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Product).where(Product.sku == sku))
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(
@@ -49,11 +49,11 @@ async def get_product(product_id: int, db: AsyncSession = Depends(get_db)):
     return product
 
 
-@router.put("/{product_id}", response_model=ProductResponse)
+@router.put("/{sku}", response_model=ProductResponse)
 async def update_product(
-    product_id: int, product_data: ProductUpdate, db: AsyncSession = Depends(get_db)
+    sku: str, product_data: ProductUpdate, db: AsyncSession = Depends(get_db)
 ):
-    result = await db.execute(select(Product).where(Product.id == product_id))
+    result = await db.execute(select(Product).where(Product.sku == sku))
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(
@@ -80,9 +80,9 @@ async def update_product(
     return product
 
 
-@router.delete("/{product_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_product(product_id: int, db: AsyncSession = Depends(get_db)):
-    result = await db.execute(select(Product).where(Product.id == product_id))
+@router.delete("/{sku}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_product(sku: str, db: AsyncSession = Depends(get_db)):
+    result = await db.execute(select(Product).where(Product.sku == sku))
     product = result.scalar_one_or_none()
     if not product:
         raise HTTPException(

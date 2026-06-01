@@ -47,7 +47,7 @@ class CustomerResponse(CustomerBase):
 
 
 class OrderItemCreate(BaseModel):
-    product_id: int
+    sku: str = Field(..., min_length=1)
     quantity: int = Field(..., gt=0)
 
 
@@ -58,10 +58,10 @@ class OrderCreate(BaseModel):
 
 class OrderItemResponse(BaseModel):
     id: int
-    product_id: int
+    sku: str
+    product_name: Optional[str] = None
     quantity: int
     unit_price: float
-    product_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

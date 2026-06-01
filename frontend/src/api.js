@@ -20,10 +20,10 @@ async function request(path, options = {}) {
 export const api = {
   // Products
   getProducts: () => request('/products/'),
-  getProduct: (id) => request(`/products/${id}`),
+  getProduct: (sku) => request(`/products/${sku}`),
   createProduct: (data) => request('/products/', { method: 'POST', body: JSON.stringify(data) }),
-  updateProduct: (id, data) => request(`/products/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-  deleteProduct: (id) => request(`/products/${id}`, { method: 'DELETE' }),
+  updateProduct: (sku, data) => request(`/products/${sku}`, { method: 'PUT', body: JSON.stringify(data) }),
+  deleteProduct: (sku) => request(`/products/${sku}`, { method: 'DELETE' }),
 
   // Customers
   getCustomers: () => request('/customers/'),

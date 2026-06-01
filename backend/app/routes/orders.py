@@ -47,13 +47,13 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
 
     for item in order_data.items:
         product_result = await db.execute(
-            select(Product).where(Product.id == item.product_id)
+            select(Product).where(Product.sku == item.sku)
         )
         product = product_result.scalar_one_or_none()
         if not product:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
-                detail=f"Product with id {item.product_id} not found",
+                detail=f"Product with SKU '{item.sku}' not found",
             )
 
         if product.quantity < item.quantity:
@@ -73,6 +73,7 @@ async def create_order(order_data: OrderCreate, db: AsyncSession = Depends(get_d
         })
 
         product.quantity -= item.quantity
+        order_items_data[-1]["sku"] = product.sku
 
     db_order = Order(
         customer_id=order_data.customer_id,
@@ -135,10 +136,7 @@ async def delete_order(order_id: int, db: AsyncSession = Depends(get_db)):
     items = items_result.scalars().all()
 
     for item in items:
-        product_result = await db.execute(
-            select(Product).where(Product.id == item.product_id)
-        )
-        product = product_result.scalar_one_or_none()
+        product = await db.get(Product, item.product_id)
         if product:
             product.quantity += item.quantity
 
@@ -159,16 +157,13 @@ async def _build_order_response(order: Order, db: AsyncSession):
 
     item_responses = []
     for item in items:
-        product_result = await db.execute(
-            select(Product).where(Product.id == item.product_id)
-        )
-        product = product_result.scalar_one_or_none()
+        product = await db.get(Product, item.product_id)
         item_responses.append(OrderItemResponse(
             id=item.id,
-            product_id=item.product_id,
+            sku=product.sku if product else "unknown",
+            product_name=product.name if product else None,
             quantity=item.quantity,
             unit_price=item.unit_price,
-            product_name=product.name if product else None,
         ))
 
     return OrderResponse(

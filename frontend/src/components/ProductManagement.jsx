@@ -47,7 +47,7 @@ export default function ProductManagement() {
 
     try {
       if (editProduct) {
-        await api.updateProduct(editProduct.id, payload);
+        await api.updateProduct(editProduct.sku, payload);
         notify.success('Product updated successfully');
       } else {
         await api.createProduct(payload);
@@ -60,10 +60,10 @@ export default function ProductManagement() {
     }
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = async (sku) => {
     if (!window.confirm('Are you sure you want to delete this product?')) return;
     try {
-      await api.deleteProduct(id);
+      await api.deleteProduct(sku);
       notify.success('Product deleted successfully');
       loadProducts();
     } catch (err) {
@@ -108,7 +108,7 @@ export default function ProductManagement() {
                 </td>
                 <td>
                   <button className="btn btn-secondary btn-sm" style={{ marginRight: 8 }} onClick={() => openEdit(p)}>Edit</button>
-                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.id)}>Delete</button>
+                  <button className="btn btn-danger btn-sm" onClick={() => handleDelete(p.sku)}>Delete</button>
                 </td>
               </tr>
             ))}

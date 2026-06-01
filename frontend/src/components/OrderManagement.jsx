@@ -9,7 +9,7 @@ export default function OrderManagement() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState(null);
-  const [form, setForm] = useState({ customer_id: '', items: [{ product_id: '', quantity: '' }] });
+  const [form, setForm] = useState({ customer_id: '', items: [{ sku: '', quantity: '' }] });
   const notify = useNotify();
 
   const loadAll = () => {
@@ -31,12 +31,12 @@ export default function OrderManagement() {
 
   const openCreate = () => {
     setSelectedOrder(null);
-    setForm({ customer_id: '', items: [{ product_id: '', quantity: '' }] });
+    setForm({ customer_id: '', items: [{ sku: '', quantity: '' }] });
     setShowForm(true);
   };
 
   const handleAddItem = () => {
-    setForm({ ...form, items: [...form.items, { product_id: '', quantity: '' }] });
+    setForm({ ...form, items: [...form.items, { sku: '', quantity: '' }] });
   };
 
   const handleRemoveItem = (index) => {
@@ -50,12 +50,25 @@ export default function OrderManagement() {
     setForm({ ...form, items });
   };
 
+  const computeFormTotal = () => {
+    let total = 0;
+    for (const item of form.items) {
+      if (item.sku && item.quantity) {
+        const product = products.find(p => p.sku === item.sku);
+        if (product) {
+          total += product.price * parseInt(item.quantity, 10);
+        }
+      }
+    }
+    return total;
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     const payload = {
       customer_id: parseInt(form.customer_id, 10),
       items: form.items.map((item) => ({
-        product_id: parseInt(item.product_id, 10),
+        sku: item.sku,
         quantity: parseInt(item.quantity, 10),
       })),
     };
@@ -99,11 +112,12 @@ export default function OrderManagement() {
           &larr; Back to Orders
         </button>
         <div className="page-header">
-          <h1>Order #{selectedOrder.id}</h1>
+          <h1>Order Details</h1>
         </div>
         <div className="detail-section">
           <h3>Order Information</h3>
           <div className="detail-grid">
+            <div><div className="detail-label">Order ID</div><div className="detail-value">#{selectedOrder.id}</div></div>
             <div><div className="detail-label">Customer</div><div className="detail-value">{selectedOrder.customer_name}</div></div>
             <div><div className="detail-label">Customer ID</div><div className="detail-value">#{selectedOrder.customer_id}</div></div>
             <div><div className="detail-label">Total Amount</div><div className="detail-value">${selectedOrder.total_amount?.toFixed(2)}</div></div>
@@ -124,13 +138,19 @@ export default function OrderManagement() {
             <tbody>
               {selectedOrder.items.map((item) => (
                 <tr key={item.id}>
-                  <td>{item.product_name || `Product #${item.product_id}`}</td>
+                  <td>{item.product_name || `SKU: ${item.sku}`}</td>
                   <td>${item.unit_price?.toFixed(2)}</td>
                   <td>{item.quantity}</td>
                   <td>${(item.unit_price * item.quantity).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
+            <tfoot>
+              <tr style={{ fontWeight: 700, background: '#f8fafc' }}>
+                <td colSpan={3} style={{ textAlign: 'right', padding: '12px 16px' }}>Total:</td>
+                <td style={{ padding: '12px 16px' }}>${selectedOrder.total_amount?.toFixed(2)}</td>
+              </tr>
+            </tfoot>
           </table>
         </div>
       </div>
@@ -197,10 +217,10 @@ export default function OrderManagement() {
                 <div key={index} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'flex-end' }}>
                   <div className="form-group" style={{ flex: 1, marginBottom: 0 }}>
                     <label>Product</label>
-                    <select value={item.product_id} onChange={(e) => handleItemChange(index, 'product_id', e.target.value)} required>
+                    <select value={item.sku} onChange={(e) => handleItemChange(index, 'sku', e.target.value)} required>
                       <option value="">Select product</option>
                       {products.map((p) => (
-                        <option key={p.id} value={p.id}>{p.name} (Stock: {p.quantity})</option>
+                        <option key={p.sku} value={p.sku}>{p.name} ({p.sku}, Stock: {p.quantity})</option>
                       ))}
                     </select>
                   </div>
@@ -214,6 +234,10 @@ export default function OrderManagement() {
                 </div>
               ))}
               <button type="button" className="btn btn-secondary btn-sm" onClick={handleAddItem}>+ Add Item</button>
+
+              <div style={{ textAlign: 'right', marginTop: 16, fontSize: '1.1rem', fontWeight: 700 }}>
+                Order Total: ${computeFormTotal().toFixed(2)}
+              </div>
 
               <div className="form-actions">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowForm(false)}>Cancel</button>
